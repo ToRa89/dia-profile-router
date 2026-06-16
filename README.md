@@ -106,5 +106,7 @@ swift test
 
 ## License
 
-[MIT](LICENSE). Wildcard matching and the default-browser registration approach are ported from
-[Finicky](https://github.com/johnste/finicky) (MIT) — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+[MIT](LICENSE). The wildcard-matching logic is ported from
+[Finicky](https://github.com/johnste/finicky) (MIT), which also inspired the default-browser-router
+concept — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Default-browser registration here
+uses Apple's native `NSWorkspace` API (no Finicky code).

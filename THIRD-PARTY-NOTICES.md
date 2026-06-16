@@ -2,9 +2,11 @@
 
 ## Finicky
 
-Portions of this software — specifically the wildcard-matching logic
-(`Sources/DiaRouterCore/Wildcard.swift`) and the pattern for registering as a
-default browser — are ported from **Finicky**:
+The **wildcard-matching logic** in `Sources/DiaRouterCore/Wildcard.swift` is ported
+from **Finicky** (its `packages/config-api/src/wildcard.ts`). Finicky also served as
+general inspiration for the default-browser-router concept; this project's
+default-browser registration is, however, implemented independently using Apple's
+native `NSWorkspace.setDefaultApplication(...)` API and contains no Finicky code.
 
 - Repository: https://github.com/johnste/finicky
 - License: MIT
