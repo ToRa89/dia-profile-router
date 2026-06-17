@@ -8,6 +8,7 @@ final class ConfigViewModel: ObservableObject {
     @Published var config: RouterConfig
     @Published var profiles: [Profile] = []
     @Published var isDefaultBrowser = false
+    @Published var isAccessibilityGranted = false
 
     init() {
         let profs = (try? ProfileStore.loadProfiles(localStatePath: ProfileStore.defaultLocalStatePath())) ?? []
@@ -16,6 +17,7 @@ final class ConfigViewModel: ObservableObject {
         self.config = (try? ConfigStore.loadOrDefault(from: ConfigStore.defaultPath(), defaultProfileDirectory: def))
             ?? RouterConfig(rules: [], defaultProfileDirectory: def)
         self.isDefaultBrowser = DefaultBrowser.isDefault()
+        self.isAccessibilityGranted = AccessibilityPermission.isGranted()
     }
 
     /// Re-reads profiles, config, and default-browser status from disk. Called when the window
@@ -28,6 +30,7 @@ final class ConfigViewModel: ObservableObject {
         config = (try? ConfigStore.loadOrDefault(from: ConfigStore.defaultPath(), defaultProfileDirectory: def))
             ?? RouterConfig(rules: [], defaultProfileDirectory: def)
         isDefaultBrowser = DefaultBrowser.isDefault()
+        isAccessibilityGranted = AccessibilityPermission.isGranted()
     }
 
     func save() {
@@ -52,5 +55,9 @@ final class ConfigViewModel: ObservableObject {
     func setAsDefaultBrowser() {
         DefaultBrowser.setAsDefault()
         isDefaultBrowser = DefaultBrowser.isDefault()
+    }
+
+    func openAccessibilitySettings() {
+        AccessibilityPermission.openSettings()
     }
 }

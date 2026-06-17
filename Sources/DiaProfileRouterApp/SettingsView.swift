@@ -17,6 +17,16 @@ struct SettingsView: View {
                 }
             }
 
+            HStack {
+                Text("Bedienungshilfen").foregroundStyle(.secondary)
+                Spacer()
+                if vm.isAccessibilityGranted {
+                    Label("erlaubt", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                } else {
+                    Button("Bedienungshilfen erlauben") { vm.openAccessibilitySettings() }
+                }
+            }
+
             Divider()
 
             HStack {
