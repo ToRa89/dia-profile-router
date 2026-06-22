@@ -205,6 +205,7 @@ public final class DiaController {
         end tell
         """
         try runner.run(script)
+        bringToFront(windowUUID: uuid)
     }
 
     func openTabInFrontWindow(url: URL) throws {
@@ -214,6 +215,32 @@ public final class DiaController {
         end tell
         """
         try runner.run(script)
+        bringToFront(windowUUID: nil)
+    }
+
+    /// Holt Dia (und das Ziel-Fenster) nach vorne und aktiviert den eben geöffneten Tab —
+    /// sonst landet der Link „silent" im Hintergrund, wenn ein bestehendes Fenster wiederverwendet
+    /// wird (nur der Neu-Fenster-Pfad aktivierte Dia bisher implizit über den Menü-Klick).
+    ///
+    /// Bewusst best-effort und in getrennten Skripten: `activate` ist der robuste, immer
+    /// unterstützte Teil und darf nicht von einem evtl. nicht unterstützten `set index` /
+    /// `set active tab` mitgerissen werden. Schlägt etwas fehl, ist das nie fatal fürs Routing.
+    /// `windowUUID == nil` → Frontfenster.
+    func bringToFront(windowUUID: String?) {
+        // 1. Dia in den Vordergrund (Apple-Event-`activate`, nicht von macOS-Aktivierungs-
+        //    restriktionen betroffen wie NSApp.activate).
+        _ = try? runner.run(#"tell application "Dia" to activate"#)
+
+        // 2. Best-effort: Ziel-Fenster nach vorne + neuen Tab fokussieren.
+        let windowRef = windowUUID.map { "(first window whose id is \"\($0)\")" } ?? "front window"
+        let raise = """
+        tell application "Dia"
+            set w to \(windowRef)
+            set index of w to 1
+            set active tab of w to last tab of w
+        end tell
+        """
+        _ = try? runner.run(raise)
     }
 
     /// Polls until a window UUID appears that wasn't in preClickUUIDs, or times out (~2s, ~150ms interval).

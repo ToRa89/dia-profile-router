@@ -42,6 +42,7 @@ public final class Router {
             NSWorkspace.shared.open(url); return
         }
         let cfg = NSWorkspace.OpenConfiguration()
+        cfg.activates = true   // Dia in den Vordergrund holen, nicht nur im Hintergrund öffnen
         NSWorkspace.shared.open([url], withApplicationAt: dia, configuration: cfg)
     }
 }

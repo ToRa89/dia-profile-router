@@ -188,3 +188,22 @@ final class FakeRunner: AppleScriptRunning, @unchecked Sendable {
     #expect(runner.scripts.contains { $0.contains("front window") })
     #expect(!runner.scripts.contains { $0.contains("System Events") && $0.contains("click") })
 }
+
+@Test @MainActor func activatesDiaAndRaisesWindowWhenReusing() throws {
+    let runner = FakeRunner()
+    runner.windowListFallback = "WIN-1"
+
+    let controller = DiaController(runner: runner)
+    controller.createdWindowCache["Profile 10"] = "WIN-1"
+
+    try controller.open(
+        url: URL(string: "https://example.com")!,
+        profileDirectory: "Profile 10",
+        profiles: [Profile(directory: "Profile 10", name: "Client A")]
+    )
+
+    // Dia wird in den Vordergrund geholt (sonst landet der Link "silent" im Hintergrund) …
+    #expect(runner.scripts.contains { $0.contains("activate") })
+    // … und das wiederverwendete Ziel-Fenster nach vorne gebracht.
+    #expect(runner.scripts.contains { $0.contains("set index of w to 1") && $0.contains("WIN-1") })
+}
