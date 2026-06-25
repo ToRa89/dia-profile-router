@@ -1,5 +1,6 @@
 // Sources/DiaRouterShell/DiaController.swift
 import Foundation
+import os
 import DiaRouterCore
 
 @MainActor
@@ -22,37 +23,28 @@ public final class DiaController {
         profiles: [Profile],
         belongsToTargetProfile: (URL) -> Bool = { _ in false }
     ) throws {
-        // 1. Get live window UUIDs
         let live = try liveWindowUUIDs()
 
-        // 2. Cache hit: reuse the window we previously opened for this profile if still alive
+        // 1. Cache hit: reuse the window we previously opened/confirmed for this profile if still alive
         if let cached = createdWindowCache[profileDirectory], live.contains(cached) {
+            RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> cache \(cached, privacy: .public)")
             try openTab(url: url, inWindow: cached)
             return
         }
 
-        // 2b. Heuristic reuse — ACTIVE TAB WINS: prefer a window whose *active* tab routes
-        //     (by the user's rules) to this profile. Strongest signal, lowest ambiguity.
+        // 2. ACTIVE TAB WINS — reuse a window whose *active* tab routes (by the user's rules) to this
+        //    profile. Strongest signal, lowest ambiguity. (The unreliable "any tab" pass was removed.)
         let activeTabs = try windowsWithActiveURLs()
         if let match = activeTabs.first(where: { $0.url.map(belongsToTargetProfile) ?? false }) {
             createdWindowCache[profileDirectory] = match.uuid
-            try openTab(url: url, inWindow: match.uuid)
-            return
-        }
-
-        // 2c. Fallback heuristic: no active tab matched, so reuse the first window that has
-        //     ANY tab routing to this profile (catches a profile window currently showing an
-        //     off-domain page). Slightly more ambiguous, hence only after the active-tab pass.
-        let allTabs = try windowsWithAllTabURLs()
-        if let match = allTabs.first(where: { $0.urls.contains(where: belongsToTargetProfile) }) {
-            createdWindowCache[profileDirectory] = match.uuid
+            RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> activeTab \(match.uuid, privacy: .public)")
             try openTab(url: url, inWindow: match.uuid)
             return
         }
 
         // 3. Resolve display name for the target profile
         guard let profileName = profiles.first(where: { $0.directory == profileDirectory })?.name else {
-            // Unknown profile → open tab in front window as last resort
+            RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> frontFallback (unknown profile)")
             try openTabInFrontWindow(url: url)
             return
         }
@@ -60,20 +52,20 @@ public final class DiaController {
         // 4. Resolve the exact menu item name (handles truncation)
         let submenuItems = try newWindowSubmenuItemNames()
         guard let menuItemName = DiaMenu.newWindowMenuItem(forProfileName: profileName, among: submenuItems) else {
-            // Menu item not found → fall back to front window
+            RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> frontFallback (no menu item)")
             try openTabInFrontWindow(url: url)
             return
         }
 
-        // 5. Record pre-click UUID set, click menu item, poll for the new window
+        // 5. Click menu item, poll for the new window
         let preClickUUIDs = Set(try liveWindowUUIDs())
         try clickNewWindowItem(menuItemName)
-
         if let newUUID = try pollForNewWindow(preClickUUIDs: preClickUUIDs) {
             createdWindowCache[profileDirectory] = newUUID
+            RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> newWindow \(newUUID, privacy: .public) via \(menuItemName, privacy: .public)")
             try openTab(url: url, inWindow: newUUID)
         } else {
-            // Timed out — add tab to front window as degradation
+            RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> frontFallback (poll timeout)")
             try openTabInFrontWindow(url: url)
         }
     }
@@ -122,44 +114,6 @@ public final class DiaController {
             let urlStr = parts.count > 1 ? parts[1] : ""
             return (uuid, urlStr.isEmpty ? nil : URL(string: urlStr))
         }
-    }
-
-    /// Returns each live window's UUID paired with ALL of its tab URLs, in window order.
-    func windowsWithAllTabURLs() throws -> [(uuid: String, urls: [URL])] {
-        // Emits one "uuid<DELIM>url" line per tab (marker "ALLTABS" lets the test double
-        // distinguish this script). `tab` is shadowed by Dia's tab class, so use a string delim.
-        let delim = "<<|>>"
-        let script = """
-        -- ALLTABS
-        tell application "Dia"
-            set rows to {}
-            set d to "\(delim)"
-            repeat with w in windows
-                set wid to id of w
-                repeat with t in tabs of w
-                    set u to ""
-                    try
-                        set u to URL of t
-                    end try
-                    set end of rows to (wid & d & u)
-                end repeat
-            end repeat
-        end tell
-        set AppleScript's text item delimiters to linefeed
-        return rows as text
-        """
-        let out = try runner.run(script)
-        var order: [String] = []
-        var map: [String: [URL]] = [:]
-        for line in out.split(separator: "\n", omittingEmptySubsequences: true) {
-            let parts = line.components(separatedBy: delim)
-            guard let uuid = parts.first, !uuid.isEmpty else { continue }
-            if map[uuid] == nil { map[uuid] = []; order.append(uuid) }
-            if parts.count > 1, !parts[1].isEmpty, let u = URL(string: parts[1]) {
-                map[uuid]?.append(u)
-            }
-        }
-        return order.map { (uuid: $0, urls: map[$0] ?? []) }
     }
 
     func newWindowSubmenuItemNames() throws -> [String] {

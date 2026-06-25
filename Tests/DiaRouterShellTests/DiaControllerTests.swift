@@ -92,17 +92,20 @@ final class FakeRunner: AppleScriptRunning, @unchecked Sendable {
     #expect(controller.createdWindowCache["Profile 10"] == "WIN-B")
 }
 
-@Test @MainActor func reusesWindowWhenOnlyANonActiveTabMatches() throws {
+@Test @MainActor func createsNewWindowWhenOnlyNonActiveTabMatches() throws {
     let runner = FakeRunner()
-    runner.windowListFallback = "WIN-A\nWIN-B"
+    // liveWindowUUIDs: initial, pre-click snapshot, poll(no), poll(new)
+    runner.windowListQueue = [
+        "WIN-A\nWIN-B",
+        "WIN-A\nWIN-B",
+        "WIN-A\nWIN-B",
+        "WIN-A\nWIN-B\nNEW-WIN",
+    ]
     // No window's ACTIVE tab matches the target profile...
     runner.activeURLsResponse = "WIN-A<<|>>https://other.example.io/x\nWIN-B<<|>>https://google.com"
-    // ...but WIN-B has a non-active tab that does.
-    runner.allTabsResponse = """
-    WIN-A<<|>>https://other.example.io/x
-    WIN-B<<|>>https://google.com
-    WIN-B<<|>>https://app.example.com/jira
-    """
+    // ...even though WIN-B has a background tab that would (must be IGNORED now).
+    runner.allTabsResponse = "WIN-B<<|>>https://app.example.com/jira"
+    runner.submenuNamesResponse = "New Community Window\nNew Client A Window\nNew Incognito Window"
 
     let controller = DiaController(runner: runner)
     let profiles = [Profile(directory: "Profile 10", name: "Client A")]
@@ -113,9 +116,11 @@ final class FakeRunner: AppleScriptRunning, @unchecked Sendable {
         belongsToTargetProfile: { $0.host?.hasSuffix("example.com") == true }
     )
 
-    #expect(runner.scripts.contains { $0.contains("make new tab") && $0.contains("WIN-B") })
-    #expect(!runner.scripts.contains { $0.contains("System Events") })
-    #expect(controller.createdWindowCache["Profile 10"] == "WIN-B")
+    // A NEW window is created via System Events; the background-tab window is NOT reused.
+    #expect(runner.scripts.contains { $0.contains("System Events") && $0.contains("New Client A Window") })
+    #expect(runner.scripts.contains { $0.contains("make new tab") && $0.contains("NEW-WIN") })
+    #expect(!runner.scripts.contains { $0.contains("make new tab") && $0.contains("WIN-B") })
+    #expect(controller.createdWindowCache["Profile 10"] == "NEW-WIN")
 }
 
 @Test @MainActor func createsNewWindowWhenNotCached() throws {
