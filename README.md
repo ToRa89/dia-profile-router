@@ -20,12 +20,12 @@ incoming link against your rules, and opens it in the matching profile — no pi
 ```
 Link click (any app)
   → macOS hands the URL to Dia Profile Router (registered http/https handler)
-  → rule match  →  target profile  (or the default profile if no rule matches)
+  → rule match  →  target profile  (route silently)
+  → no rule     →  ask which profile (chooser); optionally remember it as a host rule
   → the link lands in the profile via the first of:
         1. a window the app itself opened for that profile (cache) → reuse
         2. an open window whose ACTIVE tab routes (by your rules) to that profile → reuse
-        3. an open window where ANY tab routes to that profile → reuse
-        4. otherwise: a new profile window via  File → New Window → "New <Profile> Window"
+        3. otherwise: a new profile window via  File → New Window → "New <Profile> Window"
   → safety net (Dia unreachable): the link is handed to Dia via NSWorkspace, never lost
 ```
 
@@ -82,8 +82,9 @@ Profiles are read automatically from Dia's `Local State` (real profile names app
 
 ## Limitations
 
-- If an already-open profile window shows no rule-matching page in *any* tab, it isn't recognized
-  as belonging to that profile → the router opens a new window.
+- Window reuse relies on a window's ACTIVE tab matching one of your rules. If a profile's window
+  is currently showing an off-rule page, the router opens a fresh profile window rather than
+  guessing from background tabs (which previously caused links to land in the wrong profile).
 - Dia is the only supported target browser.
 
 ## Project layout
