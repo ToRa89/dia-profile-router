@@ -2,36 +2,76 @@
 import AppKit
 import DiaRouterCore
 
-/// Bindet Config, Profile und DiaController zusammen.
+/// Binds config, profiles, the chooser, and the DiaController together.
 @MainActor
 public final class Router {
     private let controller: DiaController
+    private let chooser: any ProfileChooser
+    private let configPath: URL
+    private let localStatePath: URL
 
-    public init(runner: any AppleScriptRunning = NSAppleScriptRunner()) {
+    public init(
+        runner: any AppleScriptRunning = NSAppleScriptRunner(),
+        chooser: any ProfileChooser,
+        configPath: URL = ConfigStore.defaultPath(),
+        localStatePath: URL = ProfileStore.defaultLocalStatePath()
+    ) {
         self.controller = DiaController(runner: runner)
+        self.chooser = chooser
+        self.configPath = configPath
+        self.localStatePath = localStatePath
     }
 
-    public func route(_ url: URL) {
+    public func route(_ url: URL) async {
+        let config = loadConfig()
+        let profiles = (try? ProfileStore.loadProfiles(localStatePath: localStatePath)) ?? []
+        let engine = RuleEngine(config: config)
+
+        switch engine.decide(for: url) {
+        case .matched(let dir):
+            RoutingLog.logger.info("route \(url.absoluteString, privacy: .public) -> \(dir, privacy: .public) [rule]")
+            place(url, profileDirectory: dir, engine: engine, profiles: profiles)
+
+        case .needsChoice(let host):
+            RoutingLog.logger.info("route \(url.absoluteString, privacy: .public) -> needsChoice host=\(host, privacy: .public)")
+            guard let result = await chooser.choose(
+                url: url, profiles: profiles, defaultDirectory: config.defaultProfileDirectory) else {
+                RoutingLog.logger.info("chooser cancelled -> default \(config.defaultProfileDirectory, privacy: .public)")
+                place(url, profileDirectory: config.defaultProfileDirectory, engine: engine, profiles: profiles)
+                return
+            }
+            if let pattern = result.rememberPattern, !pattern.isEmpty {
+                rememberRule(pattern: pattern, profileDirectory: result.profileDirectory)
+            }
+            RoutingLog.logger.info("chooser -> \(result.profileDirectory, privacy: .public) remember=\(result.rememberPattern ?? "-", privacy: .public)")
+            place(url, profileDirectory: result.profileDirectory, engine: engine, profiles: profiles)
+        }
+    }
+
+    private func loadConfig() -> RouterConfig {
+        (try? ConfigStore.loadOrDefault(from: configPath, defaultProfileDirectory: "Default"))
+            ?? RouterConfig(rules: [], defaultProfileDirectory: "Default")
+    }
+
+    /// Append/update a `.host` rule, reading config FRESH right before writing — avoids lost
+    /// updates when several needsChoice links resolve one after another.
+    private func rememberRule(pattern: String, profileDirectory: String) {
+        let updated = RuleSuggestion.appended(
+            Rule(matchType: .host, pattern: pattern, profileDirectory: profileDirectory),
+            to: loadConfig())
+        do { try ConfigStore.save(updated, to: configPath) }
+        catch { RoutingLog.logger.error("rule save failed: \(String(describing: error), privacy: .public)") }
+    }
+
+    private func place(_ url: URL, profileDirectory: String, engine: RuleEngine, profiles: [Profile]) {
+        // A window belongs to the target only if its active tab EXPLICITLY matches a rule for it
+        // (matchedRule, not the default fallback — so default routing never hijacks a window).
+        let belongs: (URL) -> Bool = { engine.matchedRule(for: $0)?.profileDirectory == profileDirectory }
         do {
-            let config = try ConfigStore.loadOrDefault(
-                from: ConfigStore.defaultPath(), defaultProfileDirectory: "Default")
-            let profiles = (try? ProfileStore.loadProfiles(
-                localStatePath: ProfileStore.defaultLocalStatePath())) ?? []
-
-            let engine = RuleEngine(config: config)
-            let target = engine.profileDirectory(for: url)
-
-            // A window belongs to the target profile if its active tab EXPLICITLY matches a
-            // rule for that profile (matchedRule, not the default fallback — so default-profile
-            // routing never hijacks an arbitrary open window).
-            let belongs: (URL) -> Bool = { engine.matchedRule(for: $0)?.profileDirectory == target }
-
-            try controller.open(
-                url: url, profileDirectory: target, profiles: profiles,
-                belongsToTargetProfile: belongs)
+            try controller.open(url: url, profileDirectory: profileDirectory,
+                                profiles: profiles, belongsToTargetProfile: belongs)
         } catch {
-            // Degradation: Link nie verlieren -> an Dia (Default-Profil) durchreichen
-            NSLog("Routing fehlgeschlagen, Fallback NSWorkspace: \(error)")
+            RoutingLog.logger.error("placement failed, NSWorkspace fallback: \(String(describing: error), privacy: .public)")
             openInDiaDirectly(url)
         }
     }
@@ -42,7 +82,7 @@ public final class Router {
             NSWorkspace.shared.open(url); return
         }
         let cfg = NSWorkspace.OpenConfiguration()
-        cfg.activates = true   // Dia in den Vordergrund holen, nicht nur im Hintergrund öffnen
+        cfg.activates = true
         NSWorkspace.shared.open([url], withApplicationAt: dia, configuration: cfg)
     }
 }
