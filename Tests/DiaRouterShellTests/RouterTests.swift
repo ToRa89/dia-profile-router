@@ -72,4 +72,11 @@ private func writeConfig(_ cfg: RouterConfig, to url: URL) throws {
     #expect(chooser.callCount == 1)
     let saved = try ConfigStore.load(from: cfgURL)
     #expect(saved.rules.isEmpty)               // nothing learned on cancel
+    // Verify the router attempted to route somewhere after cancel (the needsChoice path ran and
+    // placement was attempted without throwing). The profile directory ("Profile 6") never appears
+    // in AppleScript source because DiaController resolves it as an unknown profile (the test
+    // uses configPath as localStatePath, yielding no loaded profiles) and falls back to front
+    // window — so a script-content assertion on the profile string is not possible without a
+    // real profiles fixture. The chooser call count above already proves the cancel path was taken.
+    #expect(runner.scripts.contains { $0.contains("make new tab") || $0.contains("front window") })
 }

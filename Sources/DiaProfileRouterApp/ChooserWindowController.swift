@@ -25,10 +25,12 @@ final class ChooserWindowController: NSObject, ProfileChooser {
         await withCheckedContinuation { (cont: CheckedContinuation<ChooserResult?, Never>) in
             var didResume = false
             var window: NSWindow?
+            var delegate: WindowCloseDelegate?
 
             let finish: (ChooserResult?) -> Void = { result in
                 guard !didResume else { return }
                 didResume = true
+                delegate = nil  // release delegate after use
                 window?.close()
                 cont.resume(returning: result)
             }
@@ -42,8 +44,19 @@ final class ChooserWindowController: NSObject, ProfileChooser {
             win.center()
             window = win
 
+            delegate = WindowCloseDelegate(onClose: { finish(nil) })
+            win.delegate = delegate
+
             NSApp.activate(ignoringOtherApps: true)
             win.makeKeyAndOrderFront(nil)
         }
     }
+}
+
+// MARK: - Private helpers
+
+private final class WindowCloseDelegate: NSObject, NSWindowDelegate {
+    private let onClose: () -> Void
+    init(onClose: @escaping () -> Void) { self.onClose = onClose }
+    func windowWillClose(_ notification: Notification) { onClose() }
 }
