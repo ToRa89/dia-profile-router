@@ -1,18 +1,11 @@
 // Sources/DiaProfileRouterApp/AppDelegate.swift
 import AppKit
 import DiaRouterShell
-import DiaRouterCore
-
-// TODO(Task 5): Replace with the real ProfileChooserWindow implementation.
-@MainActor
-private final class NullChooser: ProfileChooser {
-    func choose(url: URL, profiles: [Profile], defaultDirectory: String) async -> ChooserResult? { nil }
-}
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
-    // TODO(Task 5): Inject real UI chooser here.
-    let router = Router(chooser: NullChooser())
+    private let chooser = ChooserWindowController()
+    private lazy var router = Router(chooser: chooser)
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // SwiftUI's MenuBarExtra lifecycle does NOT deliver http(s) URLs to
@@ -27,6 +20,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func handleGetURL(event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
         guard let s = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
               let url = URL(string: s) else { return }
-        Task { await router.route(url) }
+        Task { @MainActor in await router.route(url) }
     }
 }
