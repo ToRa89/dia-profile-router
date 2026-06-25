@@ -3,9 +3,10 @@ import Foundation
 
 /// Helpers for turning a chooser decision into a persisted rule.
 public enum RuleSuggestion {
-    /// Default host pattern for "remember this site": lowercased host without a leading "www.".
-    /// Returns nil when there is no host. Deliberately does NOT collapse to a registrable
-    /// domain — that would merge distinct tenants like `porsche.sharepoint.com`.
+    /// Default host pattern for "remember this site": normalized host (via URLNormalize.host)
+    /// without a leading "www.". Returns nil when there is no host. Deliberately does NOT
+    /// collapse to a registrable domain — that would merge distinct tenants like
+    /// `porsche.sharepoint.com`.
     public static func hostPattern(for url: URL) -> String? {
         let h = URLNormalize.host(url)
         guard !h.isEmpty else { return nil }
@@ -14,6 +15,7 @@ public enum RuleSuggestion {
 
     /// Returns a new config with `rule` applied: if a `.host` rule with the same pattern
     /// (case-insensitive) exists, its profile is updated; otherwise the rule is appended.
+    /// Deduplication applies only to `.host` rules; other match types are always appended.
     public static func appended(_ rule: Rule, to config: RouterConfig) -> RouterConfig {
         var result = config
         let pat = rule.pattern.lowercased()
