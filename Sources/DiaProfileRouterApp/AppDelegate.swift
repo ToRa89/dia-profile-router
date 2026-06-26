@@ -4,7 +4,8 @@ import DiaRouterShell
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
-    let router = Router()
+    private let chooser = ChooserWindowController()
+    private lazy var router = Router(chooser: chooser)
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // SwiftUI's MenuBarExtra lifecycle does NOT deliver http(s) URLs to
@@ -19,6 +20,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func handleGetURL(event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
         guard let s = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
               let url = URL(string: s) else { return }
-        router.route(url)
+        Task { @MainActor in await router.route(url) }
     }
 }
