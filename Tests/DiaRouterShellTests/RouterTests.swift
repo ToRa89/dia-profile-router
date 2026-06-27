@@ -80,3 +80,23 @@ private func writeConfig(_ cfg: RouterConfig, to url: URL) throws {
     // real profiles fixture. The chooser call count above already proves the cancel path was taken.
     #expect(runner.scripts.contains { $0.contains("make new tab") || $0.contains("front window") })
 }
+
+@Test @MainActor func safeLinksURLIsUnwrappedBeforeRuleMatching() async throws {
+    let cfgURL = tempConfigURL()
+    try writeConfig(RouterConfig(
+        rules: [Rule(matchType: .host, pattern: "porsche.com", profileDirectory: "Profile 10")],
+        defaultProfileDirectory: "Profile 6"), to: cfgURL)
+
+    let runner = FakeRunner()
+    runner.windowListFallback = "WIN-1"
+    let chooser = MockChooser(result: nil)
+    let router = Router(runner: runner, chooser: chooser,
+                        configPath: cfgURL, localStatePath: cfgURL)
+
+    // A SafeLinks URL wrapping porsche.com — rule should match, chooser must NOT be called
+    let safeLink = URL(string:
+        "https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.porsche.com%2Fde%2F&data=x")!
+    await router.route(safeLink)
+
+    #expect(chooser.callCount == 0)   // rule matched the unwrapped URL → no chooser prompt
+}

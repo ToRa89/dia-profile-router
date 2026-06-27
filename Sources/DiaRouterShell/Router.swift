@@ -23,28 +23,32 @@ public final class Router {
     }
 
     public func route(_ url: URL) async {
+        // Unwrap Outlook SafeLinks, Teams file links, and HTTP redirect services
+        // before rule matching so rules fire on the real destination host.
+        let resolvedURL = await URLResolver.resolve(url)
+
         let config = loadConfig()
         let profiles = (try? ProfileStore.loadProfiles(localStatePath: localStatePath)) ?? []
         let engine = RuleEngine(config: config)
 
-        switch engine.decide(for: url) {
+        switch engine.decide(for: resolvedURL) {
         case .matched(let dir):
             RoutingLog.logger.info("route \(url.absoluteString, privacy: .public) -> \(dir, privacy: .public) [rule]")
-            place(url, profileDirectory: dir, engine: engine, profiles: profiles)
+            place(resolvedURL, profileDirectory: dir, engine: engine, profiles: profiles)
 
         case .needsChoice(let host):
             RoutingLog.logger.info("route \(url.absoluteString, privacy: .public) -> needsChoice host=\(host, privacy: .public)")
             guard let result = await chooser.choose(
-                url: url, profiles: profiles, defaultDirectory: config.defaultProfileDirectory) else {
+                url: resolvedURL, profiles: profiles, defaultDirectory: config.defaultProfileDirectory) else {
                 RoutingLog.logger.info("chooser cancelled -> default \(config.defaultProfileDirectory, privacy: .public)")
-                place(url, profileDirectory: config.defaultProfileDirectory, engine: engine, profiles: profiles)
+                place(resolvedURL, profileDirectory: config.defaultProfileDirectory, engine: engine, profiles: profiles)
                 return
             }
             if let pattern = result.rememberPattern, !pattern.isEmpty {
                 rememberRule(pattern: pattern, profileDirectory: result.profileDirectory)
             }
             RoutingLog.logger.info("chooser -> \(result.profileDirectory, privacy: .public) remember=\(result.rememberPattern ?? "-", privacy: .public)")
-            place(url, profileDirectory: result.profileDirectory, engine: engine, profiles: profiles)
+            place(resolvedURL, profileDirectory: result.profileDirectory, engine: engine, profiles: profiles)
         }
     }
 
