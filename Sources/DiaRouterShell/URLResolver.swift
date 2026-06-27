@@ -41,6 +41,9 @@ public enum URLResolver {
 
     // MARK: - Private
 
+    // Sends one HEAD request; URLSession follows 3xx internally and returns the final URL.
+    // Servers that reject HEAD with 405 will cause a URLError — the caller falls back to the
+    // original URL gracefully. Most link-shorteners (go.microsoft.com, aka.ms, bit.ly) support HEAD.
     private static func followRedirects(_ url: URL, timeout: TimeInterval) async throws -> URL {
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "HEAD"

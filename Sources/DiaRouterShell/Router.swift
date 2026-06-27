@@ -26,6 +26,9 @@ public final class Router {
         // Unwrap Outlook SafeLinks, Teams file links, and HTTP redirect services
         // before rule matching so rules fire on the real destination host.
         let resolvedURL = await URLResolver.resolve(url)
+        if resolvedURL != url {
+            RoutingLog.logger.info("resolve \(url.absoluteString, privacy: .public) -> \(resolvedURL.absoluteString, privacy: .public)")
+        }
 
         let config = loadConfig()
         let profiles = (try? ProfileStore.loadProfiles(localStatePath: localStatePath)) ?? []
