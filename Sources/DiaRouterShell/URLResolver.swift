@@ -26,6 +26,8 @@ public enum URLResolver {
 
         do {
             let resolved = try await followRedirects(url, timeout: 3.0)
+            let scheme = resolved.scheme?.lowercased()
+            guard scheme == "http" || scheme == "https" else { return url }
             if resolved != url {
                 RoutingLog.logger.info(
                     "unwrap http \(url.host ?? "", privacy: .public) -> \(resolved.absoluteString, privacy: .public)")
