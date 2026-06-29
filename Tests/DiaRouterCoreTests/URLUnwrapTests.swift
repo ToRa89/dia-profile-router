@@ -40,5 +40,6 @@ import Foundation
 @Test func httpRedirectHostsContainsExpectedEntries() {
     #expect(URLUnwrap.httpRedirectHosts.contains("go.microsoft.com"))
     #expect(URLUnwrap.httpRedirectHosts.contains("aka.ms"))
+    #expect(URLUnwrap.httpRedirectHosts.contains("statics.teams.cdn.office.net"))
     #expect(!URLUnwrap.httpRedirectHosts.contains("porsche.com"))
 }
