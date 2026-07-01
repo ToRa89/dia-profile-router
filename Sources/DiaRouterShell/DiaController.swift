@@ -181,9 +181,17 @@ public final class DiaController {
     /// `set active tab` mitgerissen werden. Schlägt etwas fehl, ist das nie fatal fürs Routing.
     /// `windowUUID == nil` → Frontfenster.
     func bringToFront(windowUUID: String?) {
+        let target = windowUUID ?? "<front>"
+        RoutingLog.logger.info("bringToFront start uuid=\(target, privacy: .public)")
+
         // 1. Dia in den Vordergrund (Apple-Event-`activate`, nicht von macOS-Aktivierungs-
         //    restriktionen betroffen wie NSApp.activate).
-        _ = try? runner.run(#"tell application "Dia" to activate"#)
+        do {
+            _ = try runner.run(#"tell application "Dia" to activate"#)
+            RoutingLog.logger.info("bringToFront activate ok uuid=\(target, privacy: .public)")
+        } catch {
+            RoutingLog.logger.info("bringToFront activate FAILED uuid=\(target, privacy: .public) error=\(String(describing: error), privacy: .public)")
+        }
 
         // 2. Best-effort: Ziel-Fenster nach vorne + neuen Tab fokussieren.
         let windowRef = windowUUID.map { "(first window whose id is \"\($0)\")" } ?? "front window"
@@ -194,7 +202,12 @@ public final class DiaController {
             set active tab of w to last tab of w
         end tell
         """
-        _ = try? runner.run(raise)
+        do {
+            _ = try runner.run(raise)
+            RoutingLog.logger.info("bringToFront raise ok uuid=\(target, privacy: .public)")
+        } catch {
+            RoutingLog.logger.info("bringToFront raise FAILED uuid=\(target, privacy: .public) error=\(String(describing: error), privacy: .public)")
+        }
     }
 
     /// Polls until a window UUID appears that wasn't in preClickUUIDs, or times out (~2s, ~150ms interval).
