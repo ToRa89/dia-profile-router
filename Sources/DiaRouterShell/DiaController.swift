@@ -194,14 +194,33 @@ public final class DiaController {
         }
 
         // 2. Best-effort: Ziel-Fenster nach vorne + neuen Tab fokussieren.
-        let windowRef = windowUUID.map { "(first window whose id is \"\($0)\")" } ?? "front window"
-        let raise = """
-        tell application "Dia"
-            set w to \(windowRef)
-            set index of w to 1
-            set active tab of w to last tab of w
-        end tell
-        """
+        // `first window whose id is "UUID"` scheitert in Zuweisungs-Kontext an einem
+        // Typ-Koerzionsfehler in Dia; ein expliziter repeat-Loop ist zuverlässiger.
+        let raise: String
+        if let uuid = windowUUID {
+            raise = """
+            tell application "Dia"
+                repeat with w in windows
+                    if id of w is "\(uuid)" then
+                        set index of w to 1
+                        try
+                            set active tab of w to last tab of w
+                        end try
+                        exit repeat
+                    end if
+                end repeat
+            end tell
+            """
+        } else {
+            raise = """
+            tell application "Dia"
+                set index of front window to 1
+                try
+                    set active tab of front window to last tab of front window
+                end try
+            end tell
+            """
+        }
         do {
             _ = try runner.run(raise)
             RoutingLog.logger.info("bringToFront raise ok uuid=\(target, privacy: .public)")
