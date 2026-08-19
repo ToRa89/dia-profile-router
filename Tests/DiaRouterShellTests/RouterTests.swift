@@ -100,3 +100,58 @@ private func writeConfig(_ cfg: RouterConfig, to url: URL) throws {
 
     #expect(chooser.callCount == 0)   // rule matched the unwrapped URL → no chooser prompt
 }
+
+// MARK: - Profiles that disappeared in Dia
+
+/// Writes a minimal Dia `Local State` file with the given directory→name profiles.
+private func writeLocalState(_ profiles: [String: String], to url: URL) throws {
+    let infoCache = profiles.mapValues { ["name": $0] }
+    let json: [String: Any] = ["profile": ["info_cache": infoCache]]
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try JSONSerialization.data(withJSONObject: json).write(to: url)
+}
+
+@Test @MainActor func ruleForDeletedProfileRoutesToDefaultInsteadOfFrontWindow() async throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dia-router-test-\(UUID().uuidString)")
+    let cfgURL = dir.appendingPathComponent("config.json")
+    let stateURL = dir.appendingPathComponent("Local State")
+    // "Profile 9" was deleted in Dia but a rule still points at it.
+    try writeConfig(RouterConfig(
+        rules: [Rule(matchType: .host, pattern: "wolterskluwer.com", profileDirectory: "Profile 9")],
+        defaultProfileDirectory: "Profile 6"), to: cfgURL)
+    try writeLocalState(["Profile 6": "Reinholds", "Profile 10": "Porsche"], to: stateURL)
+
+    let runner = FakeRunner()
+    runner.windowProfilesResponse = "WIN-1<<|>>0<<|>>Porsche<<|>>Reinholds<<;>>Porsche"
+    let router = Router(runner: runner, chooser: MockChooser(result: nil),
+                        configPath: cfgURL, localStatePath: stateURL)
+
+    await router.route(URL(string: "https://wolterskluwer.com/x")!)
+
+    // Lands in the default profile — not in whatever profile happens to be in front.
+    #expect(runner.scripts.contains { $0.contains("of profile \"Reinholds\"") })
+    #expect(!runner.scripts.contains { $0.contains("front window") })
+}
+
+@Test @MainActor func keepsFrontWindowFallbackWhenDefaultProfileIsGoneToo() async throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dia-router-test-\(UUID().uuidString)")
+    let cfgURL = dir.appendingPathComponent("config.json")
+    let stateURL = dir.appendingPathComponent("Local State")
+    try writeConfig(RouterConfig(
+        rules: [Rule(matchType: .host, pattern: "wolterskluwer.com", profileDirectory: "Profile 9")],
+        defaultProfileDirectory: "Profile 99"), to: cfgURL)
+    try writeLocalState(["Profile 6": "Reinholds"], to: stateURL)
+
+    let runner = FakeRunner()
+    runner.windowProfilesResponse = "WIN-1<<|>>0<<|>>Reinholds<<|>>Reinholds"
+    runner.windowListFallback = "WIN-1"
+    let router = Router(runner: runner, chooser: MockChooser(result: nil),
+                        configPath: cfgURL, localStatePath: stateURL)
+
+    await router.route(URL(string: "https://wolterskluwer.com/x")!)
+
+    // Never guess a profile: fall back to the front window.
+    #expect(!runner.scripts.contains { $0.contains("of profile ") })
+    #expect(runner.scripts.contains { $0.contains("front window") })
+}
