@@ -10,6 +10,11 @@ final class ConfigViewModel: ObservableObject {
     @Published var isDefaultBrowser = false
     @Published var isAccessibilityGranted = false
 
+    /// ~1 minute of one-second checks — long enough to walk through System Settings, short enough
+    /// to stop on its own if the user abandons the flow.
+    private static let accessibilityPollAttempts = 60
+    private var accessibilityPoll: Task<Void, Never>?
+
     init() {
         let profs = (try? ProfileStore.loadProfiles(localStatePath: ProfileStore.defaultLocalStatePath())) ?? []
         self.profiles = profs
@@ -57,7 +62,32 @@ final class ConfigViewModel: ObservableObject {
         isDefaultBrowser = DefaultBrowser.isDefault()
     }
 
-    func openAccessibilitySettings() {
-        AccessibilityPermission.openSettings()
+    /// Triggers the system Accessibility prompt, which registers the app in
+    /// System Settings → Privacy & Security → Accessibility, and opens that pane. Granting itself
+    /// stays the user's (password-protected) action in System Settings.
+    func requestAccessibility() {
+        if AccessibilityPermission.request() {
+            RoutingLog.logger.info("accessibility request -> already granted")
+            isAccessibilityGranted = true
+            return
+        }
+        RoutingLog.logger.info("accessibility request -> prompted, app registered in the list")
+        pollAccessibilityStatus()
+    }
+
+    /// The switch is flipped outside this process, so poll briefly instead of leaving a stale
+    /// "not allowed" badge until the user reopens this window.
+    private func pollAccessibilityStatus() {
+        accessibilityPoll?.cancel()
+        accessibilityPoll = Task { [weak self] in
+            for _ in 0..<Self.accessibilityPollAttempts {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, let self else { return }
+                if AccessibilityPermission.isGranted() {
+                    self.isAccessibilityGranted = true
+                    return
+                }
+            }
+        }
     }
 }
