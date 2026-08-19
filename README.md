@@ -65,8 +65,9 @@ disappear behind the app the link was clicked in.
 2. **Permissions** (one-time; persist afterwards thanks to the stable signature):
    - **Automation** → control Dia (allow the prompt on the first link)
    - **Accessibility** → only needed for the legacy menu automation (older Dia builds);
-     the profile API path works without it
-     (System Settings → Privacy & Security → Accessibility → add the app)
+     the profile API path works without it. "Bedienungshilfen erlauben" triggers the system
+     prompt, which registers the app in System Settings → Privacy & Security → Accessibility —
+     so you only flip the switch there instead of adding the binary via "+".
 3. **Rules & default profile** — manage them in the menu-bar window.
 
 ## Configuration

@@ -23,7 +23,7 @@ struct SettingsView: View {
                 if vm.isAccessibilityGranted {
                     Label("erlaubt", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
                 } else {
-                    Button("Bedienungshilfen erlauben") { vm.openAccessibilitySettings() }
+                    Button("Bedienungshilfen erlauben") { vm.requestAccessibility() }
                 }
             }
 
