@@ -23,6 +23,25 @@ public final class DiaController {
         profiles: [Profile],
         belongsToTargetProfile: (URL) -> Bool = { _ in false }
     ) throws {
+        // Preferred path: address the profile BY NAME through Dia's profile API (see
+        // DiaProfileTabs.swift). No Accessibility, no menu positions, no window guessing.
+        if let profileName = profiles.first(where: { $0.directory == profileDirectory })?.name,
+           openInNamedProfile(url: url, profileName: profileName, profileDirectory: profileDirectory) {
+            return
+        }
+        try openViaWindowMenu(
+            url: url, profileDirectory: profileDirectory, profiles: profiles,
+            belongsToTargetProfile: belongsToTargetProfile)
+    }
+
+    /// Fallback for Dia builds without the profile API, where each profile had its own window
+    /// created via `File → New Window → New <Profile> Window`.
+    func openViaWindowMenu(
+        url: URL,
+        profileDirectory: String,
+        profiles: [Profile],
+        belongsToTargetProfile: (URL) -> Bool
+    ) throws {
         let live = try liveWindowUUIDs()
 
         // 1. Cache hit: reuse the window we previously opened/confirmed for this profile if still alive
@@ -49,8 +68,10 @@ public final class DiaController {
             return
         }
 
-        // 4. Resolve the exact menu item name (handles truncation)
-        let submenuItems = try newWindowSubmenuItemNames()
+        // 4. Resolve the exact menu item name (handles truncation). A missing submenu is a
+        //    normal state in current Dia builds — treat the query failure as "no items" instead
+        //    of throwing, so routing degrades to the front window rather than to NSWorkspace.
+        let submenuItems = (try? newWindowSubmenuItemNames()) ?? []
         guard let menuItemName = DiaMenu.newWindowMenuItem(forProfileName: profileName, among: submenuItems) else {
             RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> frontFallback (no menu item)")
             try openTabInFrontWindow(url: url)
@@ -246,14 +267,14 @@ public final class DiaController {
 
     /// Percent-encodes control characters that would break an AppleScript string literal,
     /// then applies the standard backslash-escape for `\` and `"`.
-    private func asStringLiteral(_ url: URL) -> String {
+    func asStringLiteral(_ url: URL) -> String {
         let s = url.absoluteString
             .replacingOccurrences(of: "\r", with: "%0D")
             .replacingOccurrences(of: "\n", with: "%0A")
         return escaped(s)
     }
 
-    private func escaped(_ s: String) -> String {
+    func escaped(_ s: String) -> String {
         s.replacingOccurrences(of: "\\", with: "\\\\")
          .replacingOccurrences(of: "\"", with: "\\\"")
     }

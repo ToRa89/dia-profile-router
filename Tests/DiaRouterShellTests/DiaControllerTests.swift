@@ -17,6 +17,13 @@ final class FakeRunner: AppleScriptRunning, @unchecked Sendable {
 
     /// Response for submenu-names queries.
     var submenuNamesResponse: String = ""
+    /// When true, the submenu-names query throws (Dia without a New-Window submenu).
+    var submenuNamesThrows = false
+
+    /// Response for the window/profile query ("uuid<<|>>index<<|>>activeProfile<<|>>p1<<;>>p2" lines).
+    var windowProfilesResponse: String = ""
+    /// Response for the "make new tab … of profile" script ("OK" or "MISSING").
+    var makeProfileTabResponse: String = "OK"
 
     /// Response for the active-tab-per-window query ("uuid<<|>>URL" lines).
     var activeURLsResponse: String = ""
@@ -29,6 +36,12 @@ final class FakeRunner: AppleScriptRunning, @unchecked Sendable {
         if source.contains("ALLTABS") {
             return allTabsResponse
         }
+        if source.contains("active profile") {
+            return windowProfilesResponse
+        }
+        if source.contains("make new tab") && source.contains("of profile ") {
+            return makeProfileTabResponse
+        }
         if source.contains("active tab") {
             return activeURLsResponse
         }
@@ -39,6 +52,9 @@ final class FakeRunner: AppleScriptRunning, @unchecked Sendable {
             return windowListFallback
         }
         if source.contains("every menu item of menu") {
+            if submenuNamesThrows {
+                throw AppleScriptError(message: "Can’t get menu 1 of menu item \"New Window\". Invalid index.")
+            }
             return submenuNamesResponse
         }
         // click / make new tab → return empty, just record
