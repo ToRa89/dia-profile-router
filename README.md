@@ -55,7 +55,9 @@ cp -R "build/Dia Profile Router.app" /Applications/
 open "/Applications/Dia Profile Router.app"
 ```
 
-The app runs as a menu-bar item (no Dock icon).
+The app runs as a menu-bar item. It has no Dock icon at rest — while a chooser window is
+open it temporarily gets one and the window floats above other apps, so the prompt cannot
+disappear behind the app the link was clicked in.
 
 ## Setup
 
