@@ -1,0 +1,16 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dia Profile Router menu bar icon">
+  <!-- Simplified, monochrome variant of assets/logo.svg for the menu bar: same routing motif
+       (one source fanning out to three profile targets), without the rounded-square background
+       and with heavier strokes so it stays readable at 18pt. Rendered as a template image, so
+       macOS tints it for light and dark menu bars. -->
+  <g stroke="#000000" stroke-width="2.6" stroke-linecap="round" fill="none">
+    <path d="M8 18 H14"/>
+    <path d="M14 18 C 20 18, 21 8, 25 8"/>
+    <path d="M14 18 H25"/>
+    <path d="M14 18 C 20 18, 21 28, 25 28"/>
+  </g>
+  <circle cx="8" cy="18" r="3.6" fill="#000000"/>
+  <circle cx="28" cy="8" r="3" fill="#000000"/>
+  <circle cx="28" cy="18" r="3" fill="#000000"/>
+  <circle cx="28" cy="28" r="3" fill="#000000"/>
+</svg>

@@ -9,6 +9,9 @@ import DiaRouterShell
 @MainActor
 final class ChooserWindowController: NSObject, ProfileChooser {
     private var tail: Task<ChooserResult?, Never>?
+    /// Dock icon while a chooser is on screen, so it cannot get lost behind the app the link
+    /// was clicked in (the router itself is a menu-bar-only LSUIElement app).
+    private let dock = DockPresence()
 
     func choose(url: URL, profiles: [Profile], defaultDirectory: String) async -> ChooserResult? {
         let previous = tail
@@ -27,11 +30,12 @@ final class ChooserWindowController: NSObject, ProfileChooser {
             var window: NSWindow?
             var delegate: WindowCloseDelegate?
 
-            let finish: (ChooserResult?) -> Void = { result in
+            let finish: (ChooserResult?) -> Void = { [dock] result in
                 guard !didResume else { return }
                 didResume = true
                 delegate = nil  // release delegate after use
                 window?.close()
+                dock.windowDidClose()
                 cont.resume(returning: result)
             }
 
@@ -47,8 +51,21 @@ final class ChooserWindowController: NSObject, ProfileChooser {
             delegate = WindowCloseDelegate(onClose: { finish(nil) })
             win.delegate = delegate
 
-            NSApp.activate(ignoringOtherApps: true)
-            win.makeKeyAndOrderFront(nil)
+            // Float above the app the link was clicked in. macOS may refuse to activate a
+            // background app at all, and then a normal-level window would sit behind that app
+            // with nothing but the Dock icon hinting at it.
+            win.level = .floating
+
+            // Dock icon BEFORE activating — the policy switch is what makes the activation
+            // request stick. AppKit needs one runloop turn to apply the new policy, so the
+            // activation is asked for afterwards; orderFrontRegardless shows the window even
+            // if macOS denies activation.
+            dock.windowWillShow()
+            win.orderFrontRegardless()
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                win.makeKeyAndOrderFront(nil)
+            }
         }
     }
 }

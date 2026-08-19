@@ -6,8 +6,14 @@ import DiaRouterShell
 struct DiaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     var body: some Scene {
-        MenuBarExtra("Dia Router", systemImage: "arrow.triangle.branch") {
+        MenuBarExtra {
             SettingsView()
+        } label: {
+            if let icon = MenuBarIcon.image {
+                Image(nsImage: icon)
+            } else {
+                Image(systemName: "arrow.triangle.branch")   // bundle asset missing
+            }
         }
         .menuBarExtraStyle(.window)
     }
