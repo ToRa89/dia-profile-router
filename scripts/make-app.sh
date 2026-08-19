@@ -19,6 +19,27 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp "$BIN_PATH/DiaProfileRouterApp" "$APP/Contents/MacOS/DiaProfileRouterApp"
 
+# App icon: rendered from assets/logo.svg at build time (sips + iconutil ship with macOS), so the
+# repo stays free of a generated binary that could drift from the source SVG. The icon shows up in
+# the Dock while a chooser window is open — without it macOS draws the blank placeholder document.
+echo "==> Rendering app icon from assets/logo.svg"
+ICONSET="$(mktemp -d)/AppIcon.iconset"
+mkdir -p "$ICONSET"
+for spec in "16 16x16" "32 16x16@2x" "32 32x32" "64 32x32@2x" "128 128x128" "256 128x128@2x" \
+            "256 256x256" "512 256x256@2x" "512 512x512" "1024 512x512@2x"; do
+    px="${spec%% *}"
+    name="${spec##* }"
+    sips -s format png -Z "$px" assets/logo.svg --out "$ICONSET/icon_$name.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf "$(dirname "$ICONSET")"
+
+# Menu-bar icon: simplified monochrome variant of the same motif, rendered at 1x/2x. Loaded as a
+# template image, so macOS tints it for light and dark menu bars.
+echo "==> Rendering menu bar icon from assets/menubar-icon.svg"
+sips -s format png -Z 18 assets/menubar-icon.svg --out "$APP/Contents/Resources/MenuBarIcon.png" >/dev/null
+sips -s format png -Z 36 assets/menubar-icon.svg --out "$APP/Contents/Resources/MenuBarIcon@2x.png" >/dev/null
+
 # Codesign with a STABLE local self-signed identity if available, else fall back to ad-hoc.
 # A stable identity keeps the code-signing "designated requirement" constant across rebuilds,
 # so macOS Automation/Accessibility (TCC) grants PERSIST instead of resetting every build.
