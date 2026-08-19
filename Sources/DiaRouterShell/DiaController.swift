@@ -23,6 +23,25 @@ public final class DiaController {
         profiles: [Profile],
         belongsToTargetProfile: (URL) -> Bool = { _ in false }
     ) throws {
+        // Preferred path: address the profile BY NAME through Dia's profile API (see
+        // DiaProfileTabs.swift). No Accessibility, no menu positions, no window guessing.
+        if let profileName = profiles.first(where: { $0.directory == profileDirectory })?.name,
+           openInNamedProfile(url: url, profileName: profileName, profileDirectory: profileDirectory) {
+            return
+        }
+        try openViaWindowMenu(
+            url: url, profileDirectory: profileDirectory, profiles: profiles,
+            belongsToTargetProfile: belongsToTargetProfile)
+    }
+
+    /// Fallback for Dia builds without the profile API, where each profile had its own window
+    /// created via `File → New Window → New <Profile> Window`.
+    func openViaWindowMenu(
+        url: URL,
+        profileDirectory: String,
+        profiles: [Profile],
+        belongsToTargetProfile: (URL) -> Bool
+    ) throws {
         let live = try liveWindowUUIDs()
 
         // 1. Cache hit: reuse the window we previously opened/confirmed for this profile if still alive
@@ -49,8 +68,10 @@ public final class DiaController {
             return
         }
 
-        // 4. Resolve the exact menu item name (handles truncation)
-        let submenuItems = try newWindowSubmenuItemNames()
+        // 4. Resolve the exact menu item name (handles truncation). A missing submenu is a
+        //    normal state in current Dia builds — treat the query failure as "no items" instead
+        //    of throwing, so routing degrades to the front window rather than to NSWorkspace.
+        let submenuItems = (try? newWindowSubmenuItemNames()) ?? []
         guard let menuItemName = DiaMenu.newWindowMenuItem(forProfileName: profileName, among: submenuItems) else {
             RoutingLog.logger.info("place \(profileDirectory, privacy: .public) -> frontFallback (no menu item)")
             try openTabInFrontWindow(url: url)
@@ -181,20 +202,52 @@ public final class DiaController {
     /// `set active tab` mitgerissen werden. Schlägt etwas fehl, ist das nie fatal fürs Routing.
     /// `windowUUID == nil` → Frontfenster.
     func bringToFront(windowUUID: String?) {
+        let target = windowUUID ?? "<front>"
+        RoutingLog.logger.info("bringToFront start uuid=\(target, privacy: .public)")
+
         // 1. Dia in den Vordergrund (Apple-Event-`activate`, nicht von macOS-Aktivierungs-
         //    restriktionen betroffen wie NSApp.activate).
-        _ = try? runner.run(#"tell application "Dia" to activate"#)
+        do {
+            _ = try runner.run(#"tell application "Dia" to activate"#)
+            RoutingLog.logger.info("bringToFront activate ok uuid=\(target, privacy: .public)")
+        } catch {
+            RoutingLog.logger.info("bringToFront activate FAILED uuid=\(target, privacy: .public) error=\(String(describing: error), privacy: .public)")
+        }
 
         // 2. Best-effort: Ziel-Fenster nach vorne + neuen Tab fokussieren.
-        let windowRef = windowUUID.map { "(first window whose id is \"\($0)\")" } ?? "front window"
-        let raise = """
-        tell application "Dia"
-            set w to \(windowRef)
-            set index of w to 1
-            set active tab of w to last tab of w
-        end tell
-        """
-        _ = try? runner.run(raise)
+        // `first window whose id is "UUID"` scheitert in Zuweisungs-Kontext an einem
+        // Typ-Koerzionsfehler in Dia; ein expliziter repeat-Loop ist zuverlässiger.
+        let raise: String
+        if let uuid = windowUUID {
+            raise = """
+            tell application "Dia"
+                repeat with w in windows
+                    if id of w is "\(uuid)" then
+                        set index of w to 1
+                        try
+                            set active tab of w to last tab of w
+                        end try
+                        exit repeat
+                    end if
+                end repeat
+            end tell
+            """
+        } else {
+            raise = """
+            tell application "Dia"
+                set index of front window to 1
+                try
+                    set active tab of front window to last tab of front window
+                end try
+            end tell
+            """
+        }
+        do {
+            _ = try runner.run(raise)
+            RoutingLog.logger.info("bringToFront raise ok uuid=\(target, privacy: .public)")
+        } catch {
+            RoutingLog.logger.info("bringToFront raise FAILED uuid=\(target, privacy: .public) error=\(String(describing: error), privacy: .public)")
+        }
     }
 
     /// Polls until a window UUID appears that wasn't in preClickUUIDs, or times out (~2s, ~150ms interval).
@@ -214,14 +267,14 @@ public final class DiaController {
 
     /// Percent-encodes control characters that would break an AppleScript string literal,
     /// then applies the standard backslash-escape for `\` and `"`.
-    private func asStringLiteral(_ url: URL) -> String {
+    func asStringLiteral(_ url: URL) -> String {
         let s = url.absoluteString
             .replacingOccurrences(of: "\r", with: "%0D")
             .replacingOccurrences(of: "\n", with: "%0A")
         return escaped(s)
     }
 
-    private func escaped(_ s: String) -> String {
+    func escaped(_ s: String) -> String {
         s.replacingOccurrences(of: "\\", with: "\\\\")
          .replacingOccurrences(of: "\"", with: "\\\"")
     }

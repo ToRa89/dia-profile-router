@@ -23,18 +23,20 @@ Link click (any app)
   → rule match  →  target profile  (route silently)
   → no rule     →  ask which profile (chooser); optionally remember it as a host rule
   → the link lands in the profile via the first of:
-        1. a window the app itself opened for that profile (cache) → reuse
-        2. an open window whose ACTIVE tab routes (by your rules) to that profile → reuse
-        3. otherwise: a new profile window via  File → New Window → "New <Profile> Window"
+        1. Dia's profile API: the tab is created in  profile "<Name>"  and focused
+           (window preference: one already showing that profile, else the frontmost)
+        2. legacy path (older Dia builds): reuse a cached/heuristically matched window,
+           else a new profile window via  File → New Window → "New <Profile> Window"
+        3. otherwise: the front window
   → safety net (Dia unreachable): the link is handed to Dia via NSWorkspace, never lost
 ```
 
-Background: Dia exposes **no** supported way to open a URL in a *specific* profile from the
-outside (the CLI profile flag is rejected while Dia is running, there is no `dia://` routing
-route, and AppleScript has no profile object). The router therefore composes the result from
-supported pieces: AppleScript for tabs/window list, plus menu automation to spawn a new profile
-window. A window's profile isn't queryable via any API — hence the heuristic based on tab URLs
-and your own rules.
+Background: current Dia builds model a profile as a *space of tabs inside a window* and expose it
+in their AppleScript dictionary (`profile` class with `name`, plus `focus` / `move`). The router
+addresses the target **by profile name** — never by menu or list position, which shifts as soon as
+a profile is added, removed, or reordered — and needs no UI scripting for this path. Older builds
+created one window per profile and had no profile object; that path is kept as a fallback and
+relies on menu automation plus a tab-URL heuristic.
 
 ## Requirements
 
@@ -60,7 +62,8 @@ The app runs as a menu-bar item (no Dock icon).
 1. **Set as default browser** — in the menu-bar window, click "Set as default browser" and confirm the system dialog.
 2. **Permissions** (one-time; persist afterwards thanks to the stable signature):
    - **Automation** → control Dia (allow the prompt on the first link)
-   - **Accessibility** → for the menu automation that opens new profile windows
+   - **Accessibility** → only needed for the legacy menu automation (older Dia builds);
+     the profile API path works without it
      (System Settings → Privacy & Security → Accessibility → add the app)
 3. **Rules & default profile** — manage them in the menu-bar window.
 

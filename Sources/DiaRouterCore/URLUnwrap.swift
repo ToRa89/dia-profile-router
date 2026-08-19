@@ -7,6 +7,8 @@ public enum URLUnwrap {
     public static let httpRedirectHosts: Set<String> = [
         "go.microsoft.com",
         "aka.ms",
+        // Teams CDN acts as a redirect proxy for externally-linked resources
+        "statics.teams.cdn.office.net",
         "bit.ly",
         "t.co",
         "ow.ly",
