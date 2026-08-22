@@ -55,9 +55,10 @@ cp -R "build/Dia Profile Router.app" /Applications/
 open "/Applications/Dia Profile Router.app"
 ```
 
-The app runs as a menu-bar item. It has no Dock icon at rest — while a chooser window is
-open it temporarily gets one and the window floats above other apps, so the prompt cannot
-disappear behind the app the link was clicked in.
+The app runs as a menu-bar item; its icon opens a small menu with "Einstellungen …" and
+"Beenden". It has no Dock icon at rest — while the settings window or a chooser is open it
+temporarily gets one, so neither can get lost behind the app you were working in. The chooser
+additionally floats above other apps, since it blocks a link from being routed.
 
 ## Setup
 

@@ -5,7 +5,13 @@ import DiaRouterShell
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     private let chooser = ChooserWindowController()
+    private let settings = SettingsWindowController()
     private lazy var router = Router(chooser: chooser)
+
+    /// Opens (or re-focuses) the settings window. Called from the menu-bar item.
+    public func showSettings() {
+        settings.show()
+    }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // SwiftUI's MenuBarExtra lifecycle does NOT deliver http(s) URLs to
