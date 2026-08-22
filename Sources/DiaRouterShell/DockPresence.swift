@@ -12,6 +12,10 @@ import AppKit
 /// The policy call is injected so the counting behaviour can be tested without a running NSApp.
 @MainActor
 public final class DockPresence {
+    /// Shared by every window that should put the app in the Dock (chooser, settings), so the
+    /// icon disappears only once the last one is gone.
+    public static let shared = DockPresence()
+
     public typealias PolicySetter = (NSApplication.ActivationPolicy) -> Void
 
     private let setPolicy: PolicySetter

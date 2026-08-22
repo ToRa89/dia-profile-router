@@ -7,7 +7,9 @@ struct DiaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     var body: some Scene {
         MenuBarExtra {
-            SettingsView()
+            Button("Einstellungen …") { appDelegate.showSettings() }
+            Divider()
+            Button("Beenden") { NSApplication.shared.terminate(nil) }
         } label: {
             if let icon = MenuBarIcon.image {
                 Image(nsImage: icon)
@@ -15,6 +17,6 @@ struct DiaApp: App {
                 Image(systemName: "arrow.triangle.branch")   // bundle asset missing
             }
         }
-        .menuBarExtraStyle(.window)
+        .menuBarExtraStyle(.menu)
     }
 }

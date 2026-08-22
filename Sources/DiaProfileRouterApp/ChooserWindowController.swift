@@ -11,7 +11,7 @@ final class ChooserWindowController: NSObject, ProfileChooser {
     private var tail: Task<ChooserResult?, Never>?
     /// Dock icon while a chooser is on screen, so it cannot get lost behind the app the link
     /// was clicked in (the router itself is a menu-bar-only LSUIElement app).
-    private let dock = DockPresence()
+    private let dock = DockPresence.shared
 
     func choose(url: URL, profiles: [Profile], defaultDirectory: String) async -> ChooserResult? {
         let previous = tail
