@@ -18,6 +18,16 @@ struct SettingsView: View {
             }
 
             HStack {
+                Text("HTML-Dateien").foregroundStyle(.secondary)
+                Spacer()
+                if vm.isDefaultForLocalHTML {
+                    Label("Standard", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                } else {
+                    Button("Für lokale HTML-Dateien setzen") { vm.setAsDefaultForLocalHTML() }
+                }
+            }
+
+            HStack {
                 Text("Bedienungshilfen").foregroundStyle(.secondary)
                 Spacer()
                 if vm.isAccessibilityGranted {

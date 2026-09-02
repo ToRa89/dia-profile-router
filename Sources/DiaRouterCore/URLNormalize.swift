@@ -2,9 +2,18 @@
 import Foundation
 
 public enum URLNormalize {
+    /// Pseudo-Host für lokale Dateien (`file://`). Solche URLs haben keinen Host, wären damit
+    /// im Regelwerk nicht adressierbar und würden in einem namenlosen Chooser-Prompt landen.
+    /// Über diesen Pseudo-Host greifen `host`-Regeln (alle lokalen Dateien) genauso wie
+    /// `prefix`/`wildcard`-Regeln auf den Dateipfad (`localfile/Users/…`).
+    public static let localFileHost = "localfile"
+
     /// Kleingeschriebener Host, ohne Trailing-Slash am Pfad.
+    /// `file://`-URLs liefern immer `localFileHost` — auch Netzwerkpfade wie `file://server/share`,
+    /// damit "lokale Datei" im Regelwerk eine einzige, vorhersagbare Bedeutung hat.
     public static func host(_ url: URL) -> String {
-        (url.host ?? "").lowercased()
+        if url.scheme?.lowercased() == "file" { return localFileHost }
+        return (url.host ?? "").lowercased()
     }
 
     /// "host/path" kleingeschrieben, ohne Fragment/Query, ohne Trailing-Slash.

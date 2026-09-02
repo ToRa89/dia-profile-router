@@ -26,8 +26,10 @@ struct ChooserView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Link öffnen in welchem Profil?").font(.headline)
-            Text(url.absoluteString)
+            Text(url.isFileURL ? "Lokale Datei öffnen in welchem Profil?"
+                               : "Link öffnen in welchem Profil?").font(.headline)
+            // Local files: the raw file:// URL is percent-encoded noise — show the path.
+            Text(url.isFileURL ? url.path : url.absoluteString)
                 .font(.callout).foregroundStyle(.secondary)
                 .lineLimit(1).truncationMode(.middle)
 
@@ -41,9 +43,13 @@ struct ChooserView: View {
                 }
             }
 
-            Toggle("Immer diesen Host als Regel merken", isOn: $remember)
+            // A local file's suggested pattern is the `localfile` pseudo-host, i.e. "every
+            // local file" — the generic host wording would be misleading there.
+            Toggle(url.isFileURL ? "Lokale Dateien immer in dieses Profil öffnen"
+                                 : "Immer diesen Host als Regel merken", isOn: $remember)
             if remember {
-                TextField("Host", text: $pattern).textFieldStyle(.roundedBorder)
+                TextField(url.isFileURL ? "Muster" : "Host", text: $pattern)
+                    .textFieldStyle(.roundedBorder)
             }
 
             HStack {

@@ -23,6 +23,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             andEventID: AEEventID(kAEGetURL))
     }
 
+    /// Local files (.html, .xhtml, .webarchive) do NOT arrive as URLs — LaunchServices sends an
+    /// `odoc` (open documents) Apple Event. Unlike kAEGetURL above, AppKit DOES forward that one
+    /// to the delegate under the MenuBarExtra lifecycle (verified end-to-end), so no manual
+    /// Apple Event handler is needed here.
+    public func application(_ application: NSApplication, open urls: [URL]) {
+        Task { @MainActor in
+            for url in urls { await router.route(url) }
+        }
+    }
+
     @objc func handleGetURL(event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
         guard let s = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
               let url = URL(string: s) else { return }
