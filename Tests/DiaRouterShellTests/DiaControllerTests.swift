@@ -225,6 +225,7 @@ final class FakeRunner: AppleScriptRunning, @unchecked Sendable {
 
     // Dia wird in den Vordergrund geholt (sonst landet der Link "silent" im Hintergrund) …
     #expect(runner.scripts.contains { $0.contains("activate") })
-    // … und das wiederverwendete Ziel-Fenster nach vorne gebracht.
-    #expect(runner.scripts.contains { $0.contains("set index of w to 1") && $0.contains("WIN-1") })
+    // … und der Tab im wiederverwendeten Ziel-Fenster über den offiziellen `focus`-Befehl
+    // fokussiert (nicht über das in Dia read-only `index`/`active tab`).
+    #expect(runner.scripts.contains { $0.contains("focus (last tab of") && $0.contains("WIN-1") })
 }
