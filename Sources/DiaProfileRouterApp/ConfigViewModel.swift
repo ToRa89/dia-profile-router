@@ -8,6 +8,9 @@ final class ConfigViewModel: ObservableObject {
     @Published var config: RouterConfig
     @Published var profiles: [Profile] = []
     @Published var isDefaultBrowser = false
+    /// Separate status: setting the default browser only rebinds http/https, not the
+    /// `public.html` file-type binding used when a local .html file is opened.
+    @Published var isDefaultForLocalHTML = false
     @Published var isAccessibilityGranted = false
 
     /// ~1 minute of one-second checks — long enough to walk through System Settings, short enough
@@ -22,6 +25,7 @@ final class ConfigViewModel: ObservableObject {
         self.config = (try? ConfigStore.loadOrDefault(from: ConfigStore.defaultPath(), defaultProfileDirectory: def))
             ?? RouterConfig(rules: [], defaultProfileDirectory: def)
         self.isDefaultBrowser = DefaultBrowser.isDefault()
+        self.isDefaultForLocalHTML = DefaultBrowser.isDefaultForLocalHTML()
         self.isAccessibilityGranted = AccessibilityPermission.isGranted()
     }
 
@@ -35,6 +39,7 @@ final class ConfigViewModel: ObservableObject {
         config = (try? ConfigStore.loadOrDefault(from: ConfigStore.defaultPath(), defaultProfileDirectory: def))
             ?? RouterConfig(rules: [], defaultProfileDirectory: def)
         isDefaultBrowser = DefaultBrowser.isDefault()
+        isDefaultForLocalHTML = DefaultBrowser.isDefaultForLocalHTML()
         isAccessibilityGranted = AccessibilityPermission.isGranted()
     }
 
@@ -60,6 +65,12 @@ final class ConfigViewModel: ObservableObject {
     func setAsDefaultBrowser() {
         DefaultBrowser.setAsDefault()
         isDefaultBrowser = DefaultBrowser.isDefault()
+        isDefaultForLocalHTML = DefaultBrowser.isDefaultForLocalHTML()
+    }
+
+    func setAsDefaultForLocalHTML() {
+        DefaultBrowser.setAsDefaultForLocalHTML()
+        isDefaultForLocalHTML = DefaultBrowser.isDefaultForLocalHTML()
     }
 
     /// Triggers the system Accessibility prompt, which registers the app in

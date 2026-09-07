@@ -155,3 +155,28 @@ private func writeLocalState(_ profiles: [String: String], to url: URL) throws {
     #expect(!runner.scripts.contains { $0.contains("of profile ") })
     #expect(runner.scripts.contains { $0.contains("front window") })
 }
+
+@Test @MainActor func localFileIsPlacedInTheTargetProfileLikeAnyLink() async throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dia-router-test-\(UUID().uuidString)")
+    let cfgURL = dir.appendingPathComponent("config.json")
+    let stateURL = dir.appendingPathComponent("Local State")
+    // Local files match rules via the `localfile` pseudo-host (see URLNormalize).
+    try writeConfig(RouterConfig(
+        rules: [Rule(matchType: .host, pattern: "localfile", profileDirectory: "Profile 11")],
+        defaultProfileDirectory: "Profile 6"), to: cfgURL)
+    try writeLocalState(["Profile 6": "Reinholds", "Profile 11": "raba-consulting"], to: stateURL)
+
+    let runner = FakeRunner()
+    runner.windowProfilesResponse = "WIN-1<<|>>0<<|>>Reinholds<<|>>Reinholds<<;>>raba-consulting"
+    let chooser = MockChooser(result: nil)
+    let router = Router(runner: runner, chooser: chooser, configPath: cfgURL, localStatePath: stateURL)
+
+    await router.route(URL(fileURLWithPath: "/Users/tester/My Notes/report.html"))
+
+    #expect(chooser.callCount == 0)                 // rule matched → no prompt
+    // Goes through the profile API like any link, with the file URL percent-encoded intact.
+    #expect(runner.scripts.contains {
+        $0.contains("of profile \"raba-consulting\"")
+            && $0.contains("file:///Users/tester/My%20Notes/report.html")
+    })
+}

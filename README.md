@@ -18,8 +18,10 @@ incoming link against your rules, and opens it in the matching profile — no pi
 ## How it works
 
 ```
-Link click (any app)
-  → macOS hands the URL to Dia Profile Router (registered http/https handler)
+Link click (any app) — or a local .html file opened in Finder
+  → macOS hands the URL to Dia Profile Router (registered http/https handler),
+    local files arrive as documents (public.html) and are normalized to the
+    pseudo-host "localfile" so they are rule-addressable like any site
   → rule match  →  target profile  (route silently)
   → no rule     →  ask which profile (chooser); optionally remember it as a host rule
   → the link lands in the profile via the first of:
@@ -63,6 +65,10 @@ additionally floats above other apps, since it blocks a link from being routed.
 ## Setup
 
 1. **Set as default browser** — in the menu-bar window, click "Set as default browser" and confirm the system dialog.
+   This also claims the local web-document types (`public.html`, `public.xhtml`, `.webarchive`);
+   the settings window shows a separate "HTML-Dateien" row with its own button, because macOS
+   rebinds only the http/https *schemes* when you switch the default browser — the *file type*
+   binding stays with the previous browser.
 2. **Permissions** (one-time; persist afterwards thanks to the stable signature):
    - **Automation** → control Dia (allow the prompt on the first link)
    - **Accessibility** → only needed for the legacy menu automation (older Dia builds);
@@ -83,6 +89,11 @@ Profiles are read automatically from Dia's `Local State` (real profile names app
 | `prefix` | `team.example.org/sites/Docs` | host + path prefix |
 | `wildcard` | `*client-b*`, `*/sites/Docs*` | `*` = any run of characters; without `/` matches the host, with `/` matches host+path |
 | `exact` | `https://app.example.net/login` | exact (normalized) comparison |
+
+Local files (`file://`) have no host, so they are normalized to the pseudo-host `localfile`:
+a `host` rule `localfile` routes **every** local file, and `prefix`/`wildcard` rules match the
+file path behind it (`localfile/Users/me/clientb`, `localfile/*/invoices/*`). The chooser's
+"remember" checkbox suggests `localfile` for local files.
 
 - **Default profile**: fallback when no rule matches.
 - Persistence: `~/.config/dia-router/config.json` (re-read by the app on every link).

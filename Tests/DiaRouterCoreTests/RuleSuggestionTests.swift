@@ -13,7 +13,9 @@ import Foundation
 }
 
 @Test func hostPatternIsNilWhenNoHost() {
-    #expect(RuleSuggestion.hostPattern(for: URL(string: "file:///tmp/x")!) == nil)
+    // file:// URLs are NOT hostless any more — they normalize to the localfile pseudo-host
+    // (see LocalFileRoutingTests), so a scheme without any host concept is used here.
+    #expect(RuleSuggestion.hostPattern(for: URL(string: "mailto:someone@example.com")!) == nil)
 }
 
 @Test func appendedAddsNewRule() {
