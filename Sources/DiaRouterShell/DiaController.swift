@@ -198,9 +198,19 @@ public final class DiaController {
     /// wird (nur der Neu-Fenster-Pfad aktivierte Dia bisher implizit über den Menü-Klick).
     ///
     /// Bewusst best-effort und in getrennten Skripten: `activate` ist der robuste, immer
-    /// unterstützte Teil und darf nicht von einem evtl. nicht unterstützten `set index` /
-    /// `set active tab` mitgerissen werden. Schlägt etwas fehl, ist das nie fatal fürs Routing.
-    /// `windowUUID == nil` → Frontfenster.
+    /// unterstützte Teil und darf nicht von einem evtl. fehlschlagenden `focus` mitgerissen
+    /// werden. Schlägt etwas fehl, ist das nie fatal fürs Routing. `windowUUID == nil` →
+    /// Frontfenster.
+    ///
+    /// `focus` (statt `set index`/`set active tab`) ist Dias offiziell dokumentierter Befehl
+    /// dafür ("Focus a tab or profile, bringing its window forward if needed.") — siehe auch
+    /// `makeTab(url:inProfile:window:)` in DiaProfileTabs.swift, das denselben Befehl für den
+    /// bevorzugten Profil-API-Pfad nutzt. Laut Dias eigenem `sdef` sind `index`, `active tab`
+    /// und `active profile` am `window` READ-ONLY (access="r") — jeder Versuch, sie per `set`
+    /// zu schreiben, schlägt daher IMMER mit einem AppleScript-Fehler fehl, unabhängig davon,
+    /// wie das Fenster referenziert wird. Das war die eigentliche Ursache dafür, dass über
+    /// diesen Legacy-Fallback (Dia-Build ohne Profil-API) gerouteter Tabs im Hintergrundfenster
+    /// landeten, während sichtbar das zuvor aktive Profil im Vordergrund blieb.
     func bringToFront(windowUUID: String?) {
         let target = windowUUID ?? "<front>"
         RoutingLog.logger.info("bringToFront start uuid=\(target, privacy: .public)")
@@ -214,31 +224,18 @@ public final class DiaController {
             RoutingLog.logger.info("bringToFront activate FAILED uuid=\(target, privacy: .public) error=\(String(describing: error), privacy: .public)")
         }
 
-        // 2. Best-effort: Ziel-Fenster nach vorne + neuen Tab fokussieren.
-        // `first window whose id is "UUID"` scheitert in Zuweisungs-Kontext an einem
-        // Typ-Koerzionsfehler in Dia; ein expliziter repeat-Loop ist zuverlässiger.
+        // 2. Best-effort: den eben erzeugten Tab fokussieren (bringt sein Fenster nach vorne).
         let raise: String
         if let uuid = windowUUID {
             raise = """
             tell application "Dia"
-                repeat with w in windows
-                    if id of w is "\(uuid)" then
-                        set index of w to 1
-                        try
-                            set active tab of w to last tab of w
-                        end try
-                        exit repeat
-                    end if
-                end repeat
+                focus (last tab of (first window whose id is "\(uuid)"))
             end tell
             """
         } else {
             raise = """
             tell application "Dia"
-                set index of front window to 1
-                try
-                    set active tab of front window to last tab of front window
-                end try
+                focus (last tab of front window)
             end tell
             """
         }
